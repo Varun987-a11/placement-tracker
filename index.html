@@ -1,0 +1,215 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Placement Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a73e8">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1d1d1f;--mut:#6b7280;--bd:#e5e7eb}
+@media(prefers-color-scheme:dark){:root{--bg:#111318;--card:#1b1e26;--tx:#eee;--mut:#9aa0ab;--bd:#2a2e38}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:90px}
+header{position:sticky;top:0;background:var(--bg);padding:12px 14px 6px;z-index:5}
+h1{margin:0;font-size:20px;display:flex;justify-content:space-between;align-items:baseline}
+#sync{font-size:12px;color:var(--mut);font-weight:400}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit}
+#chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0}
+.chip{white-space:nowrap;padding:6px 12px;border-radius:99px;border:1px solid var(--bd);background:var(--card);cursor:pointer;font-size:13px}
+.chip.on{background:#1a73e8;color:#fff;border-color:#1a73e8}
+#list{padding:6px 14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;cursor:pointer}
+.card b{font-size:16px}.row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.badge{color:#fff;font-size:12px;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.mut{color:var(--mut);font-size:13px;margin-top:4px}
+#fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;background:#1a73e8;color:#fff;font-size:30px;box-shadow:0 4px 14px #0004}
+dialog{border:0;border-radius:16px;width:min(560px,94vw);max-height:90vh;background:var(--bg);color:var(--tx);padding:16px}
+dialog::backdrop{background:#0006}
+label{display:block;font-size:12px;color:var(--mut);margin:10px 0 3px}
+.btns{display:flex;gap:8px;margin-top:16px}.btns button{flex:1;padding:12px;border-radius:10px;border:0;font:inherit;cursor:pointer}
+#save{background:#1a73e8;color:#fff}#cancel{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:8px 16px;border-radius:99px;display:none}
+</style></head><body>
+<header>
+  <h1>Placement Tracker <span id="sync">…</span></h1>
+  <input id="q" placeholder="Search company / role / notes">
+  <div id="chips"></div>
+</header>
+<div id="list"></div>
+<button id="fab" aria-label="Add">+</button>
+<dialog id="dlg"><h3 id="dt" style="margin:0 0 4px"></h3><div id="fields"></div>
+  <div class="btns"><button id="cancel">Cancel</button><button id="save">Save</button></div></dialog>
+<div id="toast"></div>
+
+<script>
+const API='PASTE_YOUR_EXEC_URL_HERE', TOKEN='CHANGE-ME-long-random-string-123xyz';
+const STATUS=['Registered','Awaited','Shortlisted&waiting','Selected','Eliminated'];
+const COLORS={Registered:'#7c4dff',Awaited:'#1a73e8','Shortlisted&waiting':'#8d5524',Selected:'#0f9d58',Eliminated:'#d93025'};
+const FIELDS=[['company','Company'],['role','Role'],['type','Type (Placement / Internship…)'],['source','Source'],
+ ['dateRegistered','Date Registered'],['status','Status'],['assessment','Assessment / OA'],['interview','Interview'],
+ ['location','Location'],['stipend','Stipend / CTC'],['nextAction','Next Action'],['notes','Notes']];
+const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let rows=[],filter='All',editing=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=t=>{const e=$('#toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2200)};
+
+async function load(){
+  $('#sync').textContent='Syncing…';
+  try{
+    const j=await (await fetch(`${API}?token=${TOKEN}`)).json();
+    if(j.error) throw new Error(j.error);
+    rows=j.rows; localStorage.setItem('rows',JSON.stringify(rows)); $('#sync').textContent='Synced ✓';
+  }catch(e){ rows=JSON.parse(localStorage.getItem('rows')||'[]'); $('#sync').textContent='Offline (cached)'; }
+  render();
+}
+async function post(p){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({token:TOKEN,...p})});
+  const j=await r.json(); if(j.error) throw new Error(j.error); return j;
+}
+function render(){
+  const cnt=s=>rows.filter(r=>r.status===s).length;
+  $('#chips').innerHTML=['All',...STATUS].map(s=>`<div class="chip ${s===filter?'on':''}" data-s="${esc(s)}">${esc(s)} ${s==='All'?rows.length:cnt(s)}</div>`).join('');
+  const q=$('#q').value.toLowerCase();
+  const list=rows.filter(r=>(filter==='All'||r.status===filter)&&(!q||JSON.stringify(r).toLowerCase().includes(q))).reverse();
+  $('#list').innerHTML=list.map(r=>`<div class="card" data-row="${r.row}">
+    <div class="row"><b>${esc(r.company)}</b><span class="badge" style="background:${COLORS[r.status]||'#888'}">${esc(r.status||'—')}</span></div>
+    <div class="mut">${esc(r.role)} · ${esc(r.type)}</div>
+    <div class="mut">📅 ${esc(r.dateRegistered)} · 📝 OA ${esc(r.assessment)} · 🎤 ${esc(r.interview)}</div>
+    <div class="mut">📍 ${esc(r.location)} · 💰 ${esc(r.stipend)}</div>
+    ${r.nextAction?`<div class="mut">➡️ ${esc(r.nextAction)}</div>`:''}</div>`).join('')||'<p class="mut" style="padding:20px">Nothing here yet.</p>';
+}
+function openForm(r){
+  editing=r||null; $('#dt').textContent=r?'Edit application':'New application';
+  const d=new Date(), today=`${d.getDate()} ${M[d.getMonth()]}`;
+  $('#fields').innerHTML=FIELDS.map(([k,l])=>{
+    const v=r?r[k]:(k==='dateRegistered'?today:k==='status'?'Registered':k==='source'?'AJIET':'');
+    const inp=k==='status'?`<select id="f_${k}">${STATUS.map(s=>`<option ${s===v?'selected':''}>${s}</option>`).join('')}</select>`
+      :k==='notes'?`<textarea id="f_${k}" rows="3">${esc(v)}</textarea>`:`<input id="f_${k}" value="${esc(v)}">`;
+    return `<label>${l}</label>${inp}`}).join('');
+  $('#dlg').showModal();
+}
+$('#save').onclick=async()=>{
+  const data={}; FIELDS.forEach(([k])=>data[k]=$('#f_'+k).value.trim());
+  if(!data.company) return toast('Company is required');
+  $('#save').disabled=true; $('#save').textContent='Saving…';
+  try{
+    await post(editing?{action:'update',row:editing.row,data}:{action:'add',data});
+    $('#dlg').close(); toast('Saved to sheet ✓'); await load();
+  }catch(e){ toast('Failed: '+e.message); }
+  $('#save').disabled=false; $('#save').textContent='Save';
+};
+$('#cancel').onclick=()=>$('#dlg').close();
+$('#fab').onclick=()=>openForm();
+$('#q').oninput=render;
+$('#chips').onclick=e=>{const s=e.target.dataset.s; if(s){filter=s;render()}};
+$('#list').onclick=e=>{const c=e.target.closest('.card'); if(c) openForm(rows.find(r=>r.row==c.dataset.row))};
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+load();
+</script></body></html><!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Placement Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a73e8">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1d1d1f;--mut:#6b7280;--bd:#e5e7eb}
+@media(prefers-color-scheme:dark){:root{--bg:#111318;--card:#1b1e26;--tx:#eee;--mut:#9aa0ab;--bd:#2a2e38}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:90px}
+header{position:sticky;top:0;background:var(--bg);padding:12px 14px 6px;z-index:5}
+h1{margin:0;font-size:20px;display:flex;justify-content:space-between;align-items:baseline}
+#sync{font-size:12px;color:var(--mut);font-weight:400}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit}
+#chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0}
+.chip{white-space:nowrap;padding:6px 12px;border-radius:99px;border:1px solid var(--bd);background:var(--card);cursor:pointer;font-size:13px}
+.chip.on{background:#1a73e8;color:#fff;border-color:#1a73e8}
+#list{padding:6px 14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;cursor:pointer}
+.card b{font-size:16px}.row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.badge{color:#fff;font-size:12px;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.mut{color:var(--mut);font-size:13px;margin-top:4px}
+#fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;background:#1a73e8;color:#fff;font-size:30px;box-shadow:0 4px 14px #0004}
+dialog{border:0;border-radius:16px;width:min(560px,94vw);max-height:90vh;background:var(--bg);color:var(--tx);padding:16px}
+dialog::backdrop{background:#0006}
+label{display:block;font-size:12px;color:var(--mut);margin:10px 0 3px}
+.btns{display:flex;gap:8px;margin-top:16px}.btns button{flex:1;padding:12px;border-radius:10px;border:0;font:inherit;cursor:pointer}
+#save{background:#1a73e8;color:#fff}#cancel{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:8px 16px;border-radius:99px;display:none}
+</style></head><body>
+<header>
+  <h1>Placement Tracker <span id="sync">…</span></h1>
+  <input id="q" placeholder="Search company / role / notes">
+  <div id="chips"></div>
+</header>
+<div id="list"></div>
+<button id="fab" aria-label="Add">+</button>
+<dialog id="dlg"><h3 id="dt" style="margin:0 0 4px"></h3><div id="fields"></div>
+  <div class="btns"><button id="cancel">Cancel</button><button id="save">Save</button></div></dialog>
+<div id="toast"></div>
+
+<script>
+const API='PASTE_YOUR_EXEC_URL_HERE', TOKEN='CHANGE-ME-long-random-string-123xyz';
+const STATUS=['Registered','Awaited','Shortlisted&waiting','Selected','Eliminated'];
+const COLORS={Registered:'#7c4dff',Awaited:'#1a73e8','Shortlisted&waiting':'#8d5524',Selected:'#0f9d58',Eliminated:'#d93025'};
+const FIELDS=[['company','Company'],['role','Role'],['type','Type (Placement / Internship…)'],['source','Source'],
+ ['dateRegistered','Date Registered'],['status','Status'],['assessment','Assessment / OA'],['interview','Interview'],
+ ['location','Location'],['stipend','Stipend / CTC'],['nextAction','Next Action'],['notes','Notes']];
+const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let rows=[],filter='All',editing=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=t=>{const e=$('#toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2200)};
+
+async function load(){
+  $('#sync').textContent='Syncing…';
+  try{
+    const j=await (await fetch(`${API}?token=${TOKEN}`)).json();
+    if(j.error) throw new Error(j.error);
+    rows=j.rows; localStorage.setItem('rows',JSON.stringify(rows)); $('#sync').textContent='Synced ✓';
+  }catch(e){ rows=JSON.parse(localStorage.getItem('rows')||'[]'); $('#sync').textContent='Offline (cached)'; }
+  render();
+}
+async function post(p){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({token:TOKEN,...p})});
+  const j=await r.json(); if(j.error) throw new Error(j.error); return j;
+}
+function render(){
+  const cnt=s=>rows.filter(r=>r.status===s).length;
+  $('#chips').innerHTML=['All',...STATUS].map(s=>`<div class="chip ${s===filter?'on':''}" data-s="${esc(s)}">${esc(s)} ${s==='All'?rows.length:cnt(s)}</div>`).join('');
+  const q=$('#q').value.toLowerCase();
+  const list=rows.filter(r=>(filter==='All'||r.status===filter)&&(!q||JSON.stringify(r).toLowerCase().includes(q))).reverse();
+  $('#list').innerHTML=list.map(r=>`<div class="card" data-row="${r.row}">
+    <div class="row"><b>${esc(r.company)}</b><span class="badge" style="background:${COLORS[r.status]||'#888'}">${esc(r.status||'—')}</span></div>
+    <div class="mut">${esc(r.role)} · ${esc(r.type)}</div>
+    <div class="mut">📅 ${esc(r.dateRegistered)} · 📝 OA ${esc(r.assessment)} · 🎤 ${esc(r.interview)}</div>
+    <div class="mut">📍 ${esc(r.location)} · 💰 ${esc(r.stipend)}</div>
+    ${r.nextAction?`<div class="mut">➡️ ${esc(r.nextAction)}</div>`:''}</div>`).join('')||'<p class="mut" style="padding:20px">Nothing here yet.</p>';
+}
+function openForm(r){
+  editing=r||null; $('#dt').textContent=r?'Edit application':'New application';
+  const d=new Date(), today=`${d.getDate()} ${M[d.getMonth()]}`;
+  $('#fields').innerHTML=FIELDS.map(([k,l])=>{
+    const v=r?r[k]:(k==='dateRegistered'?today:k==='status'?'Registered':k==='source'?'AJIET':'');
+    const inp=k==='status'?`<select id="f_${k}">${STATUS.map(s=>`<option ${s===v?'selected':''}>${s}</option>`).join('')}</select>`
+      :k==='notes'?`<textarea id="f_${k}" rows="3">${esc(v)}</textarea>`:`<input id="f_${k}" value="${esc(v)}">`;
+    return `<label>${l}</label>${inp}`}).join('');
+  $('#dlg').showModal();
+}
+$('#save').onclick=async()=>{
+  const data={}; FIELDS.forEach(([k])=>data[k]=$('#f_'+k).value.trim());
+  if(!data.company) return toast('Company is required');
+  $('#save').disabled=true; $('#save').textContent='Saving…';
+  try{
+    await post(editing?{action:'update',row:editing.row,data}:{action:'add',data});
+    $('#dlg').close(); toast('Saved to sheet ✓'); await load();
+  }catch(e){ toast('Failed: '+e.message); }
+  $('#save').disabled=false; $('#save').textContent='Save';
+};
+$('#cancel').onclick=()=>$('#dlg').close();
+$('#fab').onclick=()=>openForm();
+$('#q').oninput=render;
+$('#chips').onclick=e=>{const s=e.target.dataset.s; if(s){filter=s;render()}};
+$('#list').onclick=e=>{const c=e.target.closest('.card'); if(c) openForm(rows.find(r=>r.row==c.dataset.row))};
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+load();
+</script></body></html>
