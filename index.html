@@ -109,8 +109,9 @@ const API   = 'https://script.google.com/macros/s/AKfycbzMs3JhEA_GF7v7ER5jQHMUTo
 const TOKEN = 'varunkumar$secret_string';   // must match TOKEN in Apps Script exactly
 // ==================================
 
-const STATUS=['Registered','Awaited','Shortlisted&waiting','Selected','Eliminated'];
-const COLORS={Registered:'#7c4dff',Awaited:'#1a73e8','Shortlisted&waiting':'#a0642a',Selected:'#0f9d58',Eliminated:'#d93025'};
+const STATUS=['Registered','Pending','Awaited','Shortlisted&waiting','Selected','Eliminated'];
+const COLORS={Registered:'#7c4dff',Pending:'#f2c94c',Awaited:'#1a73e8','Shortlisted&waiting':'#a0642a',Selected:'#0f9d58',Eliminated:'#d93025'};
+const DARKTEXT={Pending:1};   // light-colored statuses need dark badge text
 const FIELDS=[['company','Company',1],['role','Role',1],['type','Type (Placement / Internship)'],['source','Source'],
  ['dateRegistered','Date registered'],['status','Status'],['assessment','Assessment / OA'],['interview','Interview'],
  ['location','Location'],['stipend','Stipend / CTC'],['nextAction','Next action',1],['notes','Notes',1]];
@@ -149,7 +150,7 @@ function render(){
   const f=(l,v)=>v&&v!=='--'&&v!=='-'?`<div><dt>${l}</dt><dd>${esc(v)}</dd></div>`:'';
   $('#list').innerHTML=list.map(r=>`<article class="card ${r.status==='Eliminated'?'el':''}" tabindex="0" data-row="${r.row}" style="--c:${COLORS[r.status]||'#888'}">
     <div class="head"><div><div class="co">${esc(r.company)}</div><div class="role">${esc(r.role)}${r.type?' &middot; '+esc(r.type):''}</div></div>
-    <span class="badge">${esc(r.status||'No status')}</span></div>
+    <span class="badge" ${DARKTEXT[r.status]?'style="color:#3d2f00"':''}>${esc(r.status||'No status')}</span></div>
     <dl class="meta">${f('Registered',r.dateRegistered)}${f('Assessment',r.assessment)}${f('Interview',r.interview)}${f('Location',r.location)}${f('Stipend / CTC',r.stipend)}${f('Source',r.source)}</dl>
     ${r.nextAction?`<div class="next">${esc(r.nextAction)}</div>`:''}</article>`).join('')
     ||`<div class="empty">${rows.length?'No matches. Try another search or filter.':'No applications yet. Tap + to add your first one.'}</div>`;
