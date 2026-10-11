@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
+<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Placement Tracker</title>
@@ -29,16 +27,13 @@ h1{margin:0;font-size:clamp(18px,2.4vw + 10px,26px);letter-spacing:-.02em;flex:1
 input,select,textarea{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);font:inherit;font-size:16px}
 input:focus,select:focus,textarea:focus,button:focus-visible,.chip:focus-visible,.card:focus-visible{outline:2px solid var(--pri);outline-offset:1px}
 #q{flex:1 1 220px}
-
-/* Filter chips rows */
-.filter-row{display:flex;gap:8px;overflow-x:auto;padding:6px 0;scrollbar-width:none;scroll-snap-type:x proximity;margin-inline:calc(-1*clamp(12px,3vw,28px));padding-inline:clamp(12px,3vw,28px)}
-.filter-row::-webkit-scrollbar{display:none}
-.chip{flex:none;scroll-snap-align:start;display:flex;align-items:center;gap:7px;min-height:36px;padding:0 12px;border-radius:99px;border:1px solid var(--bd);background:var(--card);cursor:pointer;font-size:13.5px;user-select:none;color:var(--tx)}
-.chip i{width:8px;height:8px;border-radius:50%;background:var(--c,#888)}
-.chip b{font-weight:600;color:var(--mut);font-size:12px}
+#chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0;scrollbar-width:none;scroll-snap-type:x proximity;margin-inline:calc(-1*clamp(12px,3vw,28px));padding-inline:clamp(12px,3vw,28px)}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;scroll-snap-align:start;display:flex;align-items:center;gap:7px;min-height:38px;padding:0 14px;border-radius:99px;border:1px solid var(--bd);background:var(--card);cursor:pointer;font-size:14px;user-select:none}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c,#888)}
+.chip b{font-weight:600;color:var(--mut)}
 .chip.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
-.chip.on b{color:inherit;opacity:.8}
-
+.chip.on b{color:inherit;opacity:.75}
 #list{display:grid;gap:clamp(8px,1.6vw,16px);grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));padding-top:clamp(10px,2vw,18px)}
 .card{container-type:inline-size;background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--c,#888);border-radius:var(--r);padding:14px;cursor:pointer;box-shadow:var(--sh);transition:transform .12s,box-shadow .12s;text-align:left}
 .card:hover{transform:translateY(-2px)}
@@ -88,9 +83,7 @@ label{display:block;font-size:12px;color:var(--mut);margin:12px 0 4px}
   #fab{right:16px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-</style>
-</head>
-<body>
+</style></head><body>
 <header><div class="wrap">
   <div class="top">
     <h1>Placement Tracker</h1>
@@ -98,18 +91,7 @@ label{display:block;font-size:12px;color:var(--mut);margin:12px 0 4px}
     <button class="ic" id="refresh" aria-label="Refresh">&#x21bb;</button>
   </div>
   <div class="tools"><input id="q" type="search" placeholder="Search company, role, notes" autocomplete="off"></div>
-  
-  <!-- Campus Type Filter Row -->
-  <div id="campus-chips" class="filter-row" style="padding-top:10px; padding-bottom:4px;"></div>
-
-  <!-- Status Filter Row -->
-  <div id="chips" class="filter-row" style="padding-top:4px; padding-bottom:10px;"></div>
+  <div id="chips"></div>
 </div></header>
-
 <main class="wrap"><div id="list"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></main>
-<button id="fab" aria-label="Add application"><span>+</span><em>Add application</em></button>
-
-<dialog id="dlg" aria-labelledby="dt">
-  <div class="dh"><h3 id="dt"></h3><button id="x" aria-label="Close" type="button">&times;</button></div>
-  <div id="fields"></div>
-  <div class="
+<button id
